@@ -1,0 +1,6 @@
+{
+  "name": "CircuitSetu — Local Electronics Repair Marketplace",
+  "description": "Connect with trusted local mobile phone and laptop repair technicians near you. Compare skills, check real-time distance, and book doorstep or shop repairs.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
