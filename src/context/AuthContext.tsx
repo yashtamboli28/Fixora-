@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { auth, googleAuthProvider } from '../lib/firebase';
+import { supabase } from '../supabaseClient';
 import { apiRequest, getOtpSessionToken, setOtpSessionToken } from '../lib/api';
 import type {
   CustomerAddress,
@@ -53,6 +54,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [hasFirebaseUser, setHasFirebaseUser] = useState(false);
+  const [hasSupabaseUser, setHasSupabaseUser] = useState(false);
   const [firebaseEmail, setFirebaseEmail] = useState<string | null>(null);
   const [firebaseDisplayName, setFirebaseDisplayName] = useState<string | null>(null);
 
@@ -87,7 +89,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [applyBundle]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    // Sync Supabase Auth session state
+    supabase.auth.getSession().then(({ data }) => {
+      const supaUser = data?.session?.user;
+      if (supaUser) {
+        setHasSupabaseUser(true);
+        setProfile((prev) =>
+          prev || {
+            id: supaUser.id,
+            fullName:
+              supaUser.user_metadata?.full_name ||
+              supaUser.email?.split('@')[0] ||
+              'User',
+            phone: supaUser.phone || '',
+            email: supaUser.email || null,
+            gender: null,
+            role:
+              supaUser.user_metadata?.role === 'technician'
+                ? 'technician'
+                : 'customer',
+            isDemo: false,
+            createdAt: supaUser.created_at,
+            updatedAt: supaUser.updated_at || supaUser.created_at,
+          }
+        );
+      }
+    });
+
+    const { data: supaListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        const supaUser = session?.user;
+        if (supaUser) {
+          setHasSupabaseUser(true);
+          setProfile((prev) =>
+            prev || {
+              id: supaUser.id,
+              fullName:
+                supaUser.user_metadata?.full_name ||
+                supaUser.email?.split('@')[0] ||
+                'User',
+              phone: supaUser.phone || '',
+              email: supaUser.email || null,
+              gender: null,
+              role:
+                supaUser.user_metadata?.role === 'technician'
+                  ? 'technician'
+                  : 'customer',
+              isDemo: false,
+              createdAt: supaUser.created_at,
+              updatedAt: supaUser.updated_at || supaUser.created_at,
+            }
+          );
+        } else {
+          setHasSupabaseUser(false);
+        }
+      }
+    );
+
+    const unsubscribeFirebase = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setHasFirebaseUser(true);
         setFirebaseEmail(user.email);
@@ -102,15 +161,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setHasFirebaseUser(false);
         setFirebaseEmail(null);
         setFirebaseDisplayName(null);
-        setProfile(null);
-        setAddresses([]);
-        setTechnicianProfile(null);
-        setSavedTechnicianIds([]);
       }
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      supaListener.subscription.unsubscribe();
+      unsubscribeFirebase();
+    };
   }, [applyBundle]);
 
   const signInWithGoogle = async (): Promise<AccountBundleResponse> => {
@@ -133,9 +191,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     setOtpSessionToken(null);
+    await supabase.auth.signOut().catch(() => {});
     if (auth.currentUser) {
       await signOut(auth);
     }
+    setHasSupabaseUser(false);
     setHasFirebaseUser(false);
     setFirebaseEmail(null);
     setFirebaseDisplayName(null);
@@ -148,7 +208,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const defaultAddress =
     addresses.find((a) => a.isDefault) || addresses[0] || null;
 
-  const isAuthenticated = Boolean(profile || hasFirebaseUser || getOtpSessionToken());
+  const isAuthenticated = Boolean(
+    profile || hasSupabaseUser || hasFirebaseUser || getOtpSessionToken()
+  );
 
   return (
     <AuthContext.Provider
