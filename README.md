@@ -8,7 +8,7 @@ Fixora is a full-stack two-sided local electronics repair marketplace connecting
 
 - **Node.js** `>= 20.x` (Node 22 LTS recommended)
 - **npm** `>= 10.x`
-- **PostgreSQL 15+** (Cloud SQL for PostgreSQL in Google AI Studio, or Supabase PostgreSQL for external deployments)
+- **PostgreSQL 15+** (Cloud SQL for PostgreSQL or Supabase PostgreSQL)
 
 ---
 
@@ -22,46 +22,16 @@ npm install
 
 ## 3. PostgreSQL / Supabase Project Setup
 
-- **In Google AI Studio**: Cloud SQL for PostgreSQL (`drizzle-orm` + `pg`) and Firebase Authentication (`firebase` + `firebase-admin`) are provisioned and pre-wired automatically.
-- **For Standalone Supabase Deployment**:
+- **Cloud SQL & Auth**: PostgreSQL (`drizzle-orm` + `pg`) and Authentication (`firebase` + `firebase-admin`) are provisioned and pre-wired for full-stack execution.
+- **Standalone Supabase Setup**:
   1. Create a new project in the Supabase Dashboard (select **South Asia — Mumbai `ap-south-1`** for lowest Indian latency).
   2. Open **SQL Editor** in the Supabase Dashboard.
   3. Copy and run `supabase/migrations/001_initial_schema.sql` to create all UUID tables, foreign keys, B-Tree indexes, the `calculate_haversine_km` distance function, and Row Level Security (RLS) policies.
   4. In **Storage**, create a public bucket named `repair-media` for technician profile photos and customer device problem photos.
-  5. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in your `.env` or Vercel environment settings so `@supabase/supabase-js` (`src/lib/supabase.ts`) connects directly to Supabase Auth, PostgREST, and Storage.
 
 ---
 
-## 4. Environment Variables
-
-Configure variables based on `.env.example`:
-
-```env
-APP_URL="http://localhost:3000"
-
-# Supabase Client SDK (Set when connecting to an external Supabase project)
-VITE_SUPABASE_URL="https://your-project-ref.supabase.co"
-VITE_SUPABASE_ANON_KEY="your-public-anon-key"
-
-# PostgreSQL Runtime Connection Pool (App User — pre-configured in AI Studio)
-SQL_HOST="/cloudsql/your-instance"
-SQL_DB_NAME="postgres"
-SQL_USER="app_user"
-SQL_PASSWORD="your_password"
-
-# Drizzle Kit Schema Migrations (Admin User)
-SQL_ADMIN_USER="postgres"
-SQL_ADMIN_PASSWORD="your_admin_password"
-
-# Comma-separated authorized administrator emails
-ADMIN_EMAILS="ytamboli943@gmail.com"
-```
-
-Never expose secret or service-role keys in frontend code (`VITE_*`). All database operations and role checks run server-side through Express (`/api/*`).
-
----
-
-## 5. SQL Migration Execution
+## 4. SQL Migration Execution
 
 - **Drizzle Kit (Cloud SQL / PostgreSQL)**:
   Schema definitions live in `src/db/schema.ts` and are pushed via `src/db/drizzle.config.ts`.
@@ -70,7 +40,7 @@ Never expose secret or service-role keys in frontend code (`VITE_*`). All databa
 
 ---
 
-## 6. Phone OTP Test Configuration
+## 5. Phone OTP Test Configuration
 
 - **Controlled Demo Mode (Built-in)**:
   To support demonstrations with 100+ customers and 10–15 technicians without incurring live SMS costs, the authentication server supports a configured test OTP:
@@ -81,15 +51,15 @@ Never expose secret or service-role keys in frontend code (`VITE_*`). All databa
 
 ---
 
-## 7. Admin Account Setup
+## 6. Admin Account Setup
 
 Admin privileges can **never** be self-assigned through customer or technician signup forms:
-1. **Google Sign-In Bootstrap**: Any email listed in `ADMIN_EMAILS` is automatically granted `role = 'admin'` on server-side token verification.
+1. **Google Sign-In Bootstrap**: Authorized administrator Google accounts are granted `role = 'admin'` on server-side token verification.
 2. **Controlled Demo Admin Login**: Open **Login**, enter test number `+91 9000000001`, and verify with OTP `123456` to open the protected **Admin Console**.
 
 ---
 
-## 8. Demo Data Setup
+## 7. Demo Data Setup
 
 - Sample records are pre-seeded in PostgreSQL with `is_demo = true` and explicitly labeled **`(Demo)`** in the UI:
   - **16 active service categories** (8 Mobile Phone issues + 8 Laptop/Desktop issues).
@@ -99,7 +69,7 @@ Admin privileges can **never** be self-assigned through customer or technician s
 
 ---
 
-## 9. Local Development Instructions
+## 8. Local Development Instructions
 
 ```bash
 npm run dev
@@ -109,7 +79,7 @@ Starts the Express backend and Vite frontend together on `http://localhost:3000`
 
 ---
 
-## 10. Build & Deployment Instructions
+## 9. Build & Deployment Instructions
 
 ```bash
 npm run build
@@ -117,4 +87,4 @@ npm start
 ```
 
 - **Cloud Run / Node Full-Stack Hosting**: Build static client assets into `dist/` with `npm run build` and run `node server.ts` on port `3000`.
-- **Vercel + External PostgreSQL/Supabase**: Deploy the frontend build (`vite build`) and mount `/api/*` serverless routes with PostgreSQL environment variables configured in Project Settings.
+- **Vercel + External PostgreSQL/Supabase**: Deploy the frontend build (`vite build`) and mount `/api/*` serverless routes connected to your PostgreSQL or Supabase project.
